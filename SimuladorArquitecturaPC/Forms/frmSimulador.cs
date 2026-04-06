@@ -6,112 +6,132 @@ using System.Windows.Forms;
 
 namespace SimuladorArquitecturaPC.Forms
 {
-    /// <summary>
-    /// Formulario principal que simula el flujo de datos de un computador:
-    /// Disco → RAM → CPU.
-    /// Permite visualizar estados y comportamiento de cada componente.
-    /// </summary>
     public partial class frmSimulador : Form
     {
-        /// <summary>
-        /// Instancia del modelo que representa el computador.
-        /// Contiene la lógica de Disco, RAM y CPU.
-        /// </summary>
         private Computador pc = new Computador();
 
-        /// <summary>
-        /// Constructor del formulario.
-        /// Inicializa componentes y define estado inicial del sistema.
-        /// </summary>
         public frmSimulador()
         {
             InitializeComponent();
-
             InicializarEstado();
         }
 
-        /// <summary>
-        /// Define el estado inicial de la CPU al arrancar la aplicación.
-        /// </summary>
         private void InicializarEstado()
         {
             lblCPU.Text = "Inactiva";
-            lblCPU.BackColor = Color.LightCoral; // 🔴 CPU apagada/inactiva
+            lblCPU.BackColor = Color.LightCoral;
+            txtDisco.BackColor = Color.White;
+            txtRAM.BackColor = Color.White;
         }
 
         /// <summary>
-        /// Evento: Guarda datos en el disco.
-        /// Simula almacenamiento persistente.
+        /// Guarda datos en el disco y registra en log interno.
         /// </summary>
         private void btnGuardarDisco_Click(object sender, EventArgs e)
         {
-            pc.Disco = txtDisco.Text;
+            pc.GuardarEnDisco(txtDisco.Text);
 
-            txtDisco.BackColor = Color.LightGray; // 💾 Indica uso de disco
-
-            listLog.Items.Add("💾 Datos guardados en DISCO");
+            txtDisco.BackColor = Color.LightGray;
+            ActualizarLog();
         }
 
         /// <summary>
-        /// Evento: Carga datos desde el disco a la RAM.
-        /// Simula transferencia de datos para ejecución.
+        /// Carga datos desde Disco a RAM y actualiza UI.
         /// </summary>
         private void btnCargarRAM_Click(object sender, EventArgs e)
         {
             string mensaje = pc.CargarARam();
-
             txtRAM.Text = pc.RAM;
-            txtRAM.BackColor = Color.LightBlue; // 🧠 RAM activa
+            txtRAM.BackColor = Color.LightBlue;
 
-            listLog.Items.Add(mensaje);
+            ActualizarLog();
         }
 
         /// <summary>
-        /// Evento: Ejecuta el procesamiento en CPU.
-        /// Incluye validación, simulación de tiempo y cambio de estados visuales.
+        /// Ejecuta procesamiento paso a paso en CPU y actualiza estado visual.
         /// </summary>
         private async void btnEjecutarCPU_Click(object sender, EventArgs e)
         {
-            // Validación: la CPU no puede procesar sin datos en RAM
             if (string.IsNullOrEmpty(pc.RAM))
             {
-                lblCPU.Text = "Error";
-                lblCPU.BackColor = Color.Red;
-
-                listLog.Items.Add("❌ No hay datos en RAM");
+                pc.Estado = Computador.EstadoCPU.Error;
+                ActualizarCPUEstado();
+                pc.Log.Add("❌ No hay datos en RAM");
+                ActualizarLog();
                 return;
             }
 
-            // Estado: CPU en procesamiento
-            lblCPU.Text = "Procesando...";
-            lblCPU.BackColor = Color.Yellow;
+            pc.Estado = Computador.EstadoCPU.Procesando;
+            ActualizarCPUEstado();
 
-            await Task.Delay(1000); // Simulación de tiempo de ejecución
+            string procesado = "";
 
-            // Procesamiento lógico
-            string resultado = pc.Procesar();
-            listLog.Items.Add(resultado);
+            // Procesamiento paso a paso visual
+            foreach (char c in pc.RAM)
+            {
+                procesado += char.ToUpper(c); // convierte a mayúscula
+                txtRAM.Text = procesado;      // actualiza la RAM en pantalla
+                await Task.Delay(100);        // retraso para ver el flujo
+            }
 
-            // Estado final: CPU terminó
-            lblCPU.Text = "Listo";
-            lblCPU.BackColor = Color.LightGreen;
+            pc.RAM = procesado;
+            pc.Estado = Computador.EstadoCPU.Listo;
+            pc.Log.Add($"⚙️ CPU procesó datos → {pc.RAM}");
 
-            listLog.Items.Add("🟢 CPU finalizó el proceso");
+            ActualizarCPUEstado();
+            ActualizarLog();
         }
-
         /// <summary>
-        /// Evento: Limpia todos los datos del sistema.
-        /// Reinicia el estado del computador.
+        /// Reinicia el computador y la interfaz.
         /// </summary>
         private void btnLimpiar_Click(object sender, EventArgs e)
         {
+            pc.Reiniciar();
+
             txtDisco.Clear();
             txtRAM.Clear();
             listLog.Items.Clear();
 
-            pc = new Computador(); // Reinicio del modelo
+            InicializarEstado();
+            ActualizarLog();
+        }
 
-            InicializarEstado(); // 🔴 Reinicia estado visual
+        /// <summary>
+        /// Actualiza la interfaz de CPU según el estado del modelo.
+        /// </summary>
+        private void ActualizarCPUEstado()
+        {
+            switch (pc.Estado)
+            {
+                case Computador.EstadoCPU.Inactiva:
+                    lblCPU.Text = "Inactiva";
+                    lblCPU.BackColor = Color.LightCoral;
+                    break;
+                case Computador.EstadoCPU.Procesando:
+                    lblCPU.Text = "Procesando...";
+                    lblCPU.BackColor = Color.Yellow;
+                    break;
+                case Computador.EstadoCPU.Listo:
+                    lblCPU.Text = "Listo";
+                    lblCPU.BackColor = Color.LightGreen;
+                    break;
+                case Computador.EstadoCPU.Error:
+                    lblCPU.Text = "Error";
+                    lblCPU.BackColor = Color.Red;
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Actualiza el log visual usando el log interno del modelo.
+        /// </summary>
+        private void ActualizarLog()
+        {
+            listLog.Items.Clear();
+            foreach (string entry in pc.Log)
+            {
+                listLog.Items.Add(entry);
+            }
         }
     }
 }
